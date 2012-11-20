@@ -1,4 +1,4 @@
-import httplib, socket, base64
+import httplib, socket, base64, json, csv
 from lxml import etree
 
 class LetsGrowConnector():
@@ -47,6 +47,11 @@ class LetsGrowConnector():
         response = result.read()
         status   = result.status
         headers  = result.getheaders()
+        
+        f = open('module_{0}.xml'.format(mtid), "w")
+        f.write(response)
+        f.close() 
+        
         c.close()
         
  #       self.log_response(status, headers, response)
@@ -62,6 +67,11 @@ class LetsGrowConnector():
         response = result.read()
         status   = result.status
         headers  = result.getheaders()
+        
+        f = open('sensors_{0}.xml'.format(mid), "w")
+        f.write(response)
+        f.close()
+        
         c.close()
         
   #      self.log_response(status, headers, response)
@@ -84,6 +94,27 @@ class LetsGrowConnector():
 def makeTagName(ns, tag):
     return '{'+'{0}'.format(ns)+'}'+'{0}'.format(tag)
         
+def csvExportSensors(s_list, filename):
+    f = open(filename, 'w')
+    
+    for s in s_list:
+#        line = u'{0},{1},{2},'.format(s['mtid'], s['mid'],s['colId']) + ',' + s['name'] + ',' + s['device_type'] + '/n'
+        f.write(str(s['mtid']))
+        f.write(';')
+        f.write(str(s['mid']))
+        f.write(';')
+        f.write(str(s['colId']))
+        f.write(';')
+        f.write(s['name'].encode('utf-8'))
+        f.write(';')
+        try:
+            f.write(s['device_type'].encode('utf-8'))
+        except:
+            pass
+        f.write('\n')
+        
+    f.close()
+    
 sensors = []
         
 L = LetsGrowConnector('greenformula', 'Jango2011')
@@ -120,13 +151,21 @@ for t in templates.iterchildren(tag=makeTagName(ns, 'PartnerModuleTemplate')):
             items = information.find(makeTagName(ns, 'ModuleItems'))
             for i in items.iterchildren(tag=makeTagName(ns, 'PartnerModuleItem')):
                 sensor = {}
-                sensor['LetsGrow'] = {}
-                sensor['CommonSense'] = {}
-                sensor['LetsGrow']['mid'] = mid
-                sensor['LetsGrow']['colId'] = int(i.find(makeTagName(ns, 'ColId')).text)
-                sensor['CommonSense']['name'] = i.find(makeTagName(ns, 'Description')).text
-                sensor['CommonSense']['device_type'] = i.find(makeTagName(ns, 'CustomerDescription')).text
+                sensor['mtid'] = mtid
+                sensor['mid'] = mid
+                sensor['colId'] = int(i.find(makeTagName(ns, 'ColId')).text)
+                sensor['name'] = i.find(makeTagName(ns, 'Description')).text
+                sensor['device_type'] = i.find(makeTagName(ns, 'CustomerDescription')).text
                 sensors.append(sensor)
 
-print sensors
+sensors_5min = []
+for s in sensors:
+    if 'FiveMinute' in s['name']:
+        sensors_5min.append(s)
+
+
+
+csvExportSensors(sensors, 'sensorslist_full.csv')
+csvExportSensors(sensors_5min, 'sensorlist_5min.csv')
+print json.dumps(sensors)
     
