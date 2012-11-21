@@ -4,7 +4,6 @@ from lxml import etree
 class LetsGrowConnector():
     def __init__(self, username, password):
         self.info_url = 'moduleconfigurationservice.letsgrow.com'
-        self.data_url = 'moduleconfigurationservice.letsgrow.com'
         self.sid = ''
         self.username = username
         self.password = password
@@ -77,6 +76,49 @@ class LetsGrowConnector():
   #      self.log_response(status, headers, response)
         
         return response
+    
+    def getSensorData (self, mid, colId, start_time, end_time):
+        heads = self.getAuthHeader(self.username, self.password)
+        c = httplib.HTTPConnection(self.info_url, timeout = 10)
+        url = '/PartnerData.svc/ReadModuleItemValues?sid={0}&moduleId={1}&colId={2}&dateTimeStart={3}&dateTimeEnd={4}'.format(self.sid, mid, colId, start_time, end_time)
+        print url 
+        c.request('GET', url, '', heads)
+
+        result = c.getresponse()        
+        response = result.read()
+        status   = result.status
+        headers  = result.getheaders()
+
+        f = open('sensordata_{0}.xml'.format(colId), "w")
+        f.write(response)
+        f.close()
+        
+        c.close()
+        
+        self.log_response(status, headers, response)
+        
+        return response
+    
+    def getLastSensorData (self, mid, colId):
+        heads = self.getAuthHeader(self.username, self.password)
+        c = httplib.HTTPConnection(self.info_url, timeout=10)
+        c.request('GET', '/PartnerData.svc/ReadLastModuleItemValue?sid={1}&moduleId={2}&colId={3}', '', heads)
+        
+        result = c.getresponse()        
+        response = result.read()
+        status   = result.status
+        headers  = result.getheaders()
+
+        f = open('sensordata_last_{0}.xml'.format(colId), "w")
+        f.write(response)
+        f.close()
+        
+        c.close()
+        
+        self.log_response(status, headers, response)
+        
+        return response
+        
     
     def getAuthHeader(self, username, password):
         authentication_string = '{0}:{1}'.format(username, password)
@@ -168,4 +210,7 @@ for s in sensors:
 csvExportSensors(sensors, 'sensorslist_full.csv')
 csvExportSensors(sensors_5min, 'sensorlist_5min.csv')
 print json.dumps(sensors)
+
+L.getSensorData(592, 207285, '2012-11-01T00:00:00', '2012-11-10T00:00:00')
+L.getLastSensorData(592, 207285)
     
