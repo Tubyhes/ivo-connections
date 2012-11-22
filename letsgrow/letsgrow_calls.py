@@ -1,4 +1,4 @@
-import httplib, socket, base64, json, csv
+import httplib, socket, base64, json
 from lxml import etree
 
 class LetsGrowConnector():
@@ -157,9 +157,13 @@ def csvExportSensors(s_list, filename):
         
     f.close()
     
+f = open('letsgrow_credentials.txt', 'r')
+creds = json.load(f)
+f.close()
+    
 sensors = []
         
-L = LetsGrowConnector('greenformula', 'Jango2011')
+L = LetsGrowConnector(creds['username'], creds['password'])
 
 # login and obtain session id
 r = L.login()

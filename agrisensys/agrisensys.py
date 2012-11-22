@@ -1,4 +1,4 @@
-import httplib, socket
+import httplib, socket, json
 
 
 class AgriSensysConnector ():
@@ -82,7 +82,11 @@ class AgriSensysConnector ():
         print 'response: {0}'.format(r)
         print '================================'
 
-A = AgriSensysConnector('b928f523b5ac8bde54edc7e812e4b44e')
+f = open('agrisensys_auth.txt', 'r')
+creds = json.load(f)
+f.close(f)
+
+A = AgriSensysConnector(creds['auth_string'])
 A.getDataChannels()
 A.getChannelData(64, '2012-11-18T00:00:00+01:00', '2012-11-19T00:00:00+01:00')
 
