@@ -1,16 +1,13 @@
 import httplib, socket, json, oauth.oauth as oauth
 
-class FitbitConnector ():
-    def __init__(self, user_id, oauth_token, oauth_token_secret):
-        
-        f = open('fitbit_oauth_consumer.txt', 'r')
-        creds = json.load(f)
-        f.close()
-        
-        self.__user_id__ = user_id
-        self.__oauth_consumer__ = oauth.OAuthConsumer(creds['oauth_consumer_key'], creds['oauth_consumer_secret'])
-        self.__oauth_token__ = oauth.OAuthToken(oauth_token, oauth_token_secret)
+class FitbitClient ():
+    def __init__(self, consumer_key, consumer_secret):
+        self.__oauth_consumer__ = oauth.OAuthConsumer(consumer_key, consumer_secret)
         self.__base_url__ = 'api.fitbit.com'
+        
+    def authenticate (self, user_id, oauth_token, oauth_token_secret):
+        self.__user_id__ = user_id
+        self.__oauth_token__ = oauth.OAuthToken(oauth_token, oauth_token_secret)
         
     def getActivities (self, day):
         url = '/1/user/{0}/activities/date/{1}.json'.format(self.__user_id__, day)
@@ -53,9 +50,3 @@ class FitbitConnector ():
         print 'response: {0}'.format(r)
         print '================================'
         
-f = open('fitbit_oauth_token.txt', 'r')
-creds = json.load(f)
-f.close()
-        
-F = FitbitConnector(creds['user_id'], creds['oauth_token'], creds['oauth_token_secret'])
-F.getActivities('2012-11-14')
