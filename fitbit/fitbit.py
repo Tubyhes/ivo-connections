@@ -40,10 +40,10 @@ class FitbitClient ():
         self.log_response(status, headers, response)
         
         if status == 200:
-            self.__response = response
+            self.__response__ = response
             return True
         else:
-            self.__response = ''
+            self.__response__ = ''
             return False
         
     def subscribe (self, subscription_id):

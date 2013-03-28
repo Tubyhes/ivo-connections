@@ -15,7 +15,7 @@ limitations under the License.
 
 
 from wsgiref.simple_server import make_server
-import threading, json, sys, time, datetime
+import threading, json, sys, time, datetime, urlparse
 import logging_sense, fitbit, senseapi
 
 try:
@@ -31,11 +31,27 @@ main_page = '' +\
     '</head>' +\
     '<body>' +\
         '<h1>Sense Fitbit Signup</h1>' +\
-        '<p>Here you can sign yourself up for data synchronization from Fitbit to Commonsense</p>' +\
-    '</body>' +\
+        '<p>Here you can sign yourself up for data synchronization from Fitbit to Commonsense.</p>' +\
+        '<h2>Provide Sense credentials:</h2>' +\
+        '<form method="POST" action="http://localhost/sense_login">' +\
+            '<table bordercolor="lightgray"><tr><td valign="bottom">' +\
+                '<center>' +\
+                    '<p>username:<input type="text" name="username"/><br>' +\
+                    'password:<input type="password" name="password"/><br>' +\
+                    '<input type="submit" value="login"/></p>' +\
+                '</center></td></tr>' +\
+            '</table>' +\
+        '</form>' +\
+        '</body>' +\
 '</html>'    
 
 class Reception():
+
+    def load_page (self, page_name):
+        f = open('html/{0}.html'.format(page_name), 'r')
+        s = f.read()
+        f.close()
+        return s
 
     def trim_to_json (self, s):
         return '[' + s.partition('[')[2].rpartition(']')[0] + ']'
@@ -51,6 +67,13 @@ class Reception():
         self.__port = port
         self.__host = host
         
+        f = open('sense_oauth_consumer.txt', 'r')
+        creds = json.load(f)
+        f.close()
+        self.__sense_oauth_consumer_key__ = creds['oauth_consumer_key']
+        self.__sense_oauth_consumer_secret__ = creds['oauth_consumer_secret']
+        self.__sense_oauth_callback__ = creds['callback']
+        
         f = open('fitbit_oauth_consumer.txt', 'r')
         creds = json.load(f)
         f.close()
@@ -60,6 +83,8 @@ class Reception():
         self.__server.serve_forever()
             
     def __handle_request__(self, environ, start_response):
+        self.logger.debug(environ)
+        
         # preferably here some anti-spam mechanism... need to check if this is a reasonable request
         response_status     = '500 Internal Server Error'
         response_body       = ''
@@ -67,6 +92,7 @@ class Reception():
         
         url     = environ.get('PATH_INFO', '/')
         method  = environ.get('REQUEST_METHOD', 'GET')
+        query   = environ.get('QUERY_STRING', '')
         
         try:
             request_body_size = int(environ.get('CONTENT_LENGTH', 0))
@@ -74,26 +100,67 @@ class Reception():
             request_body_size = 0
         
         if request_body_size > 0:
-            request_body = self.trim_to_json(environ['wsgi.input'].read(request_body_size))
+            request_body = environ['wsgi.input'].read(request_body_size)
         else:
             request_body = ''
         
         self.logger.debug('url: ' + url)
-        
+        self.logger.debug('method: ' + method)
+        self.logger.debug('query: ' + query)
+        self.logger.debug('body: ' + request_body)
 #
 # REQUEST FOR MAIN PAGE
 #
         if url == '/':
-            response_status = '200 OK'
-            response_body   = main_page
+            if method == 'GET':
+                response_status = '200 OK'
+                response_body   = self.load_page('main_page')
+                response_headers    = [('Content-Type', 'text/html'), ('Content-Length', str(len(response_body)))]
+            else:
+                response_status  = '405 Method Not Allowed'
+                response_body    = ''
+                response_headers = [('Content-Type', 'text/html'), ('Content-Length', str(len(response_body)))]
+                
+#          
+# CREDENTIALS FOR COMMONSENSE                
+#            
+        elif url == '/sense_login':
+            credentials = urlparse.parse_qs(request_body)
+            S = senseapi.SenseAPI()
+            S.setVerbosity(True)
+            
+            if not S.Login(credentials['username'][0], senseapi.MD5Hash(credentials['password'][0])):
+                response_status     = '401 Unauthorized'
+                response_body       = self.load_page('main_page_error')
+                response_headers    = [('Content-Type', 'text/html'), ('Content-Length', str(len(response_body)))]
+                start_response(response_status, response_headers)
+                return [response_body]
+                
+            if not S.OauthAuthorizeApplication(str(self.__sense_oauth_consumer_key__), str(self.__sense_oauth_consumer_secret__), 'forever', str(self.__sense_oauth_callback__)):
+                response_status     = '401 Unauthorized'
+                response_body       = self.load_page('main_page_error')
+                response_headers    = [('Content-Type', 'text/html'), ('Content-Length', str(len(response_body)))]
+                start_response(response_status, response_headers)
+                return [response_body]
+            
+            S.UsersGetCurrent()
+                
+            oauth_stuff = urlparse.parse_qs(S.getResponse())
+            f = open('users/{0}.txt'.format(credentials['username'][0]), 'w')
+            f.write(json.dumps({'credentials':{'sense_oauth_token':oauth_stuff['oauth_token'][0],'sense_oauth_token_secret':oauth_stuff['oauth_token_secret'][0]}}, sort_keys=True, indent=4))
+            f.close()
+            
+            response_status     = '200 OK'
+            response_body       = self.load_page('oauth_fitbit')
             response_headers    = [('Content-Type', 'text/html'), ('Content-Length', str(len(response_body)))]
-
-#
+            
+            
+#            
 # INCOMING NOTIFICATION FROM FITBIT
 #
         elif url == '/notification':
             self.logger.debug('body: ' + request_body)
-            notifications = json.loads(request_body)
+            notifications = json.loads(self.trim_to_json(request_body))
             
             for notification in notifications:
                 try:
