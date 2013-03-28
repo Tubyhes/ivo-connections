@@ -15,8 +15,8 @@ limitations under the License.
 
 
 from wsgiref.simple_server import make_server
-import threading, json, sys
-import logging_sense, fitbit
+import threading, json, sys, time, datetime
+import logging_sense, fitbit, senseapi
 
 try:
     host = sys.argv[1]
@@ -80,62 +80,44 @@ class Reception():
         
         self.logger.debug('url: ' + url)
         
+#
+# REQUEST FOR MAIN PAGE
+#
         if url == '/':
             response_status = '200 OK'
             response_body   = main_page
             response_headers    = [('Content-Type', 'text/html'), ('Content-Length', str(len(response_body)))]
 
+#
+# INCOMING NOTIFICATION FROM FITBIT
+#
         elif url == '/notification':
             self.logger.debug('body: ' + request_body)
             notifications = json.loads(request_body)
             
             for notification in notifications:
-                f = open('users/{0}.txt'.format(notification['subscriptionId']), 'r')
-                user_settings = json.load(f)
-                f.close()
+                try:
+                    f = open('users/{0}.txt'.format(notification['subscriptionId']), 'r')
+                    user_settings = json.load(f)
+                    f.close()
+                except:
+                    continue
             
                 self.__F.authenticate(user_settings['credentials']['user_id'], user_settings['credentials']['oauth_token'], user_settings['credentials']['oauth_token_secret'])
-                self.__F.getActivities(notification['date'])
-                
-#        elif url == '/register':
-#            if method == 'POST':
-#                try:
-#                    p = threading.Thread(target=self.handle_register, args=[request_body])
-#                    p.start()
-#                except:
-#                    pass
-#                response_status, response_headers, response_body = self.register_response(request_body)
-#            else:
-#                response_status     = '405 Method Not Allowed'
-#                response_body       = ''
-#                response_headers    = [('Content-Type', 'text/html'), ('Content-Length', str(len(response_body)))]
-#                
-#        elif url == '/in':
-#            if method == 'POST':
-#                try:
-#                    p = threading.Thread(target=self.handle_in, args=[request_body])
-#                    p.start()
-#                except:
-#                    pass
-#                response_status, response_headers, response_body = self.in_response(request_body)
-#            else:
-#                response_status     = '405 Method Not Allowed'
-#                response_body       = ''
-#                response_headers    = [('Content-Type', 'text/html'), ('Content-Length', str(len(response_body)))]           
-#                 
-#        elif url == '/out':
-#            if method == 'GET':
-#                try:
-#                    p = threading.Thread(target=self.handle_out, args=[request_body])
-#                    p.start()
-#                except:
-#                    pass
-#                response_status, response_headers, response_body = self.out_response(request_body)
-#            else:
-#                response_status     = '405 Method Not Allowed'
-#                response_body       = ''
-#                response_headers    = [('Content-Type', 'text/html'), ('Content-Length', str(len(response_body)))]         
-#                   
+                if not self.__F.getActivities(notification['date']):
+                    continue
+
+                S = senseapi.SenseAPI()
+                S.setVerbosity(True)
+                S.Login(user_settings['user_name'], senseapi.MD5Hash(user_settings['password']))
+                # construct timestamp
+                timestamp = time.mktime(datetime.datetime.strptime(notification['date'], "%Y-%m-%d").timetuple())
+                S.SensorDataPost(user_settings['sensors']['fitbit_activities'], {'data':[{'value':self.__F.get_response(), 'date':timestamp}]})
+
+            response_status  = '204 No Content'
+            response_body    = ''
+            response_headers = [('Content-Type', 'text/html'), ('Content-Length', str(len(response_body)))]
+            
         else:
             response_status, response_headers, response_body = self.__not_found__()
                 

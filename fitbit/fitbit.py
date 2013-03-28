@@ -4,6 +4,10 @@ class FitbitClient ():
     def __init__(self, consumer_key, consumer_secret):
         self.__oauth_consumer__ = oauth.OAuthConsumer(consumer_key, consumer_secret)
         self.__base_url__ = 'api.fitbit.com'
+        self.__response__ = ''
+        
+    def get_response (self):
+        return self.__response__
         
     def authenticate (self, user_id, oauth_token, oauth_token_secret):
         self.__user_id__ = user_id
@@ -34,6 +38,11 @@ class FitbitClient ():
         
         self.log_request(self.__base_url__+url, method, heads, body)
         self.log_response(status, headers, response)
+        
+        if status == '200':
+            return True
+        else:
+            return False
         
     def subscribe (self, subscription_id):
         url = '/1/user/{0}/activities/apiSubscriptions/{1}.json'.format(self.__user_id__, subscription_id)
