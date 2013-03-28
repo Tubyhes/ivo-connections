@@ -1,4 +1,4 @@
-import fitbit, json, senseapi, os, glob
+import fitbit, json, senseapi, os, glob, datetime
 
 def getUsers (file_dir):
     os.chdir(file_dir)
@@ -22,8 +22,11 @@ for user in users:
     
     S = senseapi.SenseAPI()
     S.setVerbosity(True)
-    S.AuthenticateSessionId(user_settings['user_name'], senseapi.MD5Hash(user_settings['password']))
-    F.authenticate(user_settings['user_id'], user_settings['oauth_token'], user_settings['oauth_token_secret'])
+    S.AuthenticateSessionId(user_settings['credentials']['user_name'], senseapi.MD5Hash(user_settings['credentials']['password']))
+    F.authenticate(user_settings['credentials']['user_id'], user_settings['credentials']['oauth_token'], user_settings['credentials']['oauth_token_secret'])
+    
+#    last_sync = datetime.datetime.strptime(user_settings, '%Y-%m-%d')
     
     F.getActivities('2013-03-17')
 
+    F.subscribe(user.rstrip('.tx'))
