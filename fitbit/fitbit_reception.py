@@ -109,7 +109,7 @@ class Reception():
 
                 S = senseapi.SenseAPI()
                 S.setVerbosity(True)
-                S.Login(user_settings['user_name'], senseapi.MD5Hash(user_settings['password']))
+                S.Login(user_settings['credentials']['user_name'], senseapi.MD5Hash(user_settings['credentials']['password']))
                 # construct timestamp
                 timestamp = time.mktime(datetime.datetime.strptime(notification['date'], "%Y-%m-%d").timetuple())
                 S.SensorDataPost(user_settings['sensors']['fitbit_activities'], {'data':[{'value':self.__F.get_response(), 'date':timestamp}]})
