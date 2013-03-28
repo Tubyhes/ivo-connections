@@ -15,9 +15,14 @@ limitations under the License.
 
 
 from wsgiref.simple_server import make_server
-import threading, json
+import threading, json, sys
 import logging_sense, fitbit
 
+try:
+    host = sys.argv[1]
+except:
+    print "Usage: 'python fitbit_reception.py host'"
+    sys.exit(1)
 
 main_page = '' +\
 '<html>' +\
@@ -31,6 +36,9 @@ main_page = '' +\
 '</html>'    
 
 class Reception():
+
+    def trim_to_json (self, s):
+        return '[' + s.partition('[')[2].rpartition(']')[0] + ']'
 
     def __init__(self, host, port):
         self.logger = logging_sense.Logger()
@@ -66,7 +74,7 @@ class Reception():
             request_body_size = 0
         
         if request_body_size > 0:
-            request_body = environ['wsgi.input'].read(request_body_size)
+            request_body = self.trim_to_json(environ['wsgi.input'].read(request_body_size))
         else:
             request_body = ''
         
@@ -172,7 +180,7 @@ class Reception():
         return status, response_headers, response_body
         
 
-R = Reception('localhost', 80)
+R = Reception(host, 80)
 
 #
 #class fitbit_reception(reception.Reception):

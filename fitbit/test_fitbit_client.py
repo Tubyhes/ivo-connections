@@ -30,3 +30,5 @@ for user in users:
     F.getActivities('2013-03-17')
 
     F.subscribe(user.rstrip('.tx'))
+    
+    F.list_subscriptions()
