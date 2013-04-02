@@ -247,7 +247,7 @@ class Reception():
 
                 S = senseapi.SenseAPI()
                 S.setVerbosity(True)
-                S.AuthenticateOauth(notification['subscriptionId'], user_settings['sense_oauth_token_secret'], self.__sense_oauth_consumer_key__, self.__sense_oauth_consumer_secret__)
+                S.AuthenticateOauth(notification['subscriptionId'], user_settings['credentials']['sense_oauth_token_secret'], self.__sense_oauth_consumer_key__, self.__sense_oauth_consumer_secret__)
                 # construct timestamp
                 timestamp = time.mktime(datetime.datetime.strptime(notification['date'], "%Y-%m-%d").timetuple())
                 S.SensorDataPost(user_settings['sensors']['fitbit_activities'], {'data':[{'value':F.get_response(), 'date':timestamp}]})
