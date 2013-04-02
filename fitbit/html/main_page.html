@@ -5,15 +5,13 @@
     <body>
         <h1>Sense Fitbit Signup</h1>
         <p>Here you can sign yourself up for data synchronization from Fitbit to Commonsense.</p>
-        <h2>Provide Sense credentials:</h2>
-	    <form method="POST" action="http://localhost/sense_login">
-            <table bordercolor="lightgray"><tr><td valign="bottom">
-                <center>
-                    <p>username:<input type="text" name="username"/><br>
-                    password:<input type="password" name="password"/><br>
-                    <input type="submit" value="login"/></p>
+	<p>After clicking 'GO', you will be redirected first to CommonSense and then to FitBit to authorize this application.</p>
+	<form method="POST" action="http://localhost/login_procedure">
+        <table bordercolor="lightgray"><tr><td valign="bottom">
+        	<center>
+                	<input type="submit" value="login"/></p>
                 </center></td></tr>
-            </table>
+        </table>
         </form>
 	</body>
 </html>   

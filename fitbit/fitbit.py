@@ -1,4 +1,4 @@
-import httplib, socket, json, oauth.oauth as oauth
+import httplib, socket, json, oauth.oauth as oauth, urlparse
 
 class FitbitClient ():
     def __init__(self, consumer_key, consumer_secret):
@@ -98,6 +98,35 @@ class FitbitClient ():
         self.log_request(self.__base_url__+url, method, heads, body)
         self.log_response(status, headers, response)   
     
+    def getRequestToken (self, callback):
+        oauth_request = oauth.OAuthRequest.from_consumer_and_token(self.__oauth_consumer__,\
+                                                                   http_method = 'POST',\
+                                                                   callback=callback,\
+                                                                   http_url='http://api.fitbit.com/oauth/request_token')
+        oauth_request.sign_request(oauth.OAuthSignatureMethod_HMAC_SHA1(), self.__oauth_consumer__, None)
+        
+        c = httplib.HTTPSConnection(self.__base_url__)
+        
+        url ='/oauth/request_token'
+        method = 'POST'
+        heads = oauth_request.to_header()
+        body = ''
+        
+        c.request(method, url, body, heads)
+        
+        result   = c.getresponse()        
+        response = result.read()
+        status   = result.status
+        headers  = result.getheaders()
+        
+        c.close()
+        
+        self.log_request(self.__base_url__+url, method, heads, body)
+        self.log_response(status, headers, response)
+
+        r = urlparse.parse_qs(response)
+        self.__oauth_token__ = oauth.OAuthToken(r['oauth_token'][0], r['oauth_token_secret'][0])
+        return self.__oauth_token__.key
         
     def log_request(self, u, m, h, b):
         print '================================'

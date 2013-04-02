@@ -15,7 +15,7 @@ limitations under the License.
 
 
 from wsgiref.simple_server import make_server
-import threading, json, sys, time, datetime, urlparse
+import threading, json, sys, time, datetime, urlparse, httplib
 import logging_sense, fitbit, senseapi
 
 try:
@@ -78,6 +78,7 @@ class Reception():
         creds = json.load(f)
         f.close()
         self.__F = fitbit.FitbitClient(creds['oauth_consumer_key'], creds['oauth_consumer_secret'])
+        self.__fitbit_oauth_callback__ = creds['callback']
         
         self.__server = make_server(self.__host, self.__port, self.__handle_request__)
         self.__server.serve_forever()
@@ -124,35 +125,80 @@ class Reception():
 #          
 # CREDENTIALS FOR COMMONSENSE                
 #            
-        elif url == '/sense_login':
-            credentials = urlparse.parse_qs(request_body)
+        elif url == '/login_procedure':
             S = senseapi.SenseAPI()
             S.setVerbosity(True)
             
-            if not S.Login(credentials['username'][0], senseapi.MD5Hash(credentials['password'][0])):
+            S.OauthSetConsumer(str(self.__sense_oauth_consumer_key__), str(self.__sense_oauth_consumer_secret__))
+            if not S.OauthGetRequestToken(str(self.__sense_oauth_callback__)):
                 response_status     = '401 Unauthorized'
                 response_body       = self.load_page('main_page_error')
                 response_headers    = [('Content-Type', 'text/html'), ('Content-Length', str(len(response_body)))]
                 start_response(response_status, response_headers)
                 return [response_body]
-                
-            if not S.OauthAuthorizeApplication(str(self.__sense_oauth_consumer_key__), str(self.__sense_oauth_consumer_secret__), 'forever', str(self.__sense_oauth_callback__)):
-                response_status     = '401 Unauthorized'
-                response_body       = self.load_page('main_page_error')
-                response_headers    = [('Content-Type', 'text/html'), ('Content-Length', str(len(response_body)))]
-                start_response(response_status, response_headers)
-                return [response_body]
-            
-            S.UsersGetCurrent()
-                
-            oauth_stuff = urlparse.parse_qs(S.getResponse())
-            f = open('users/{0}.txt'.format(credentials['username'][0]), 'w')
-            f.write(json.dumps({'credentials':{'sense_oauth_token':oauth_stuff['oauth_token'][0],'sense_oauth_token_secret':oauth_stuff['oauth_token_secret'][0]}}, sort_keys=True, indent=4))
+ 
+            request_token = S.__oauth_token__.key
+            f = open('users/{}.txt'.format(request_token), 'w')
+            f.write(S.__oauth_token__.secret)
             f.close()
+ 
+            response_status     = '301 Redirect'
+            response_body       = ''
+            response_headers    = [('Location', 'http://api.sense-os.nl/oauth/authorize?oauth_token={0}'.format(request_token))]
+
+        elif url == '/commonsense_oauth_callback':
+            oauth_stuff     = urlparse.parse_qs(query)
+            request_token   = oauth_stuff['oauth_token'][0]
+            verifier        = oauth_stuff['oauth_verifier'][0]
             
+            f = open('users/{0}.txt'.format(request_token), 'r')
+            token_secret = f.read()
+            f.close()
+ 
+            S = senseapi.SenseAPI()
+            S.setVerbosity(True)
+            S.OauthSetConsumer(str(self.__sense_oauth_consumer_key__), str(self.__sense_oauth_consumer_secret__))
+            S.OauthSetToken(str(request_token), str(token_secret), str(verifier))
+            
+            if not S.OauthGetAccessToken():
+                response_status     = '401 Unauthorized'
+                response_body       = self.load_page('main_page_error')
+                response_headers    = [('Content-Type', 'text/html'), ('Content-Length', str(len(response_body)))]
+                start_response(response_status, response_headers)
+                return [response_body]
+ 
+            access_token = S.__oauth_token__.key
+            token_secret = S.__oauth_token__.secret
+            f = open('users/{0}.txt'.format(access_token), 'w')
+            f.write(json.dumps({'credentials':{'sense_oauth_token_secret':token_secret}}))
+            f.close()
+ 
             response_status     = '200 OK'
             response_body       = self.load_page('oauth_fitbit')
             response_headers    = [('Content-Type', 'text/html'), ('Content-Length', str(len(response_body)))]
+
+ 
+#            if not S.OauthAuthorizeApplication(str(self.__sense_oauth_consumer_key__), str(self.__sense_oauth_consumer_secret__), 'forever', str(self.__sense_oauth_callback__)):
+#                response_status     = '401 Unauthorized'
+#                response_body       = self.load_page('main_page_error')
+#                response_headers    = [('Content-Type', 'text/html'), ('Content-Length', str(len(response_body)))]
+#                start_response(response_status, response_headers)
+#                return [response_body]
+#            
+#            S.UsersGetCurrent()
+#                
+#            oauth_stuff = urlparse.parse_qs(S.getResponse())
+#            f = open('users/{0}.txt'.format(credentials['username'][0]), 'w')
+#            f.write(json.dumps({'credentials':{'sense_oauth_token':oauth_stuff['oauth_token'][0],'sense_oauth_token_secret':oauth_stuff['oauth_token_secret'][0]}}, sort_keys=True, indent=4))
+#            f.close()
+#            
+#            response_status     = '200 OK'
+#            response_body       = self.load_page('oauth_fitbit')
+#            response_headers    = [('Content-Type', 'text/html'), ('Content-Length', str(len(response_body)))]
+       
+#
+# AUTHENTICATE AT FITBIT
+#
             
             
 #            
