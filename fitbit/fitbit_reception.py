@@ -200,7 +200,7 @@ class Reception():
             request_token   = oauth_stuff['oauth_token'][0]
             verifier        = oauth_stuff['oauth_verifier'][0]
             
-            f = open('users/{0}.txt'.format(sense_token))
+            f = open('users/{0}.txt'.format(sense_token), 'r')
             creds = json.load(f)
             f.close()
             token_secret = creds['credentials']['fitbit_oauth_token_secret']
@@ -211,7 +211,7 @@ class Reception():
             creds['credentials']['fitbit_oauth_token_secret'] = F.__oauth_token__.secret
             creds['credentials']['fitbit_user_id'] = F.__user_id__
             
-            f = open('users/{0}.txt'.format(sense_token))
+            f = open('users/{0}.txt'.format(sense_token), 'w')
             f.write(json.dumps(creds, sort_keys=True, indent=4))
             f.close()
             
