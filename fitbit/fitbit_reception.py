@@ -172,8 +172,12 @@ class Reception():
                 start_response(response_status, response_headers)
                 return [response_body]
  
-            creds = {'credentials':{}}
+            creds = {'credentials':{}, 'sensors':{}}
             creds['credentials']['sense_oauth_token_secret'] = S.__oauth_token__.secret
+            
+        # and create a sensor for fitbit activities
+            if S.SensorsPost({'sensor': {'name':'fitbit_activities', 'display_name':'Fitbit Activities', 'device_type':'fitbit', 'data_type':'json'}}):
+                creds['sensors']['fitbit_activities'] = S.getLocationId()
             
         # then move on to authenticating at Fitbit
             F = fitbit.FitbitClient(self.__fitbit_oauth_consumer_key__, self.__fitbit_oauth_consumer_secret__)
@@ -211,6 +215,8 @@ class Reception():
             creds['credentials']['fitbit_oauth_token_secret'] = F.__oauth_token__.secret
             creds['credentials']['fitbit_user_id'] = F.__user_id__
             
+            F.subscribe(sense_token)
+            
             f = open('users/{0}.txt'.format(sense_token), 'w')
             f.write(json.dumps(creds, sort_keys=True, indent=4))
             f.close()
@@ -235,13 +241,13 @@ class Reception():
                     continue
                 
                 F = fitbit.FitbitClient(self.__fitbit_oauth_consumer_key__, self.fitbit_oauth_consumer_secret__)
-                F.authenticate(user_settings['credentials']['user_id'], user_settings['credentials']['oauth_token'], user_settings['credentials']['oauth_token_secret'])
+                F.authenticate(user_settings['credentials']['fitbit_user_id'], user_settings['credentials']['fitbit_oauth_token_key'], user_settings['credentials']['fitbit_oauth_token_secret'])
                 if not F.getActivities(notification['date']):
                     continue
 
                 S = senseapi.SenseAPI()
                 S.setVerbosity(True)
-                S.Login(user_settings['credentials']['user_name'], senseapi.MD5Hash(user_settings['credentials']['password']))
+                S.AuthenticateOauth(notification['subscriptionId'], user_settings['sense_oauth_token_secret'], self.__sense_oauth_consumer_key__, self.__sense_oauth_consumer_secret__)
                 # construct timestamp
                 timestamp = time.mktime(datetime.datetime.strptime(notification['date'], "%Y-%m-%d").timetuple())
                 S.SensorDataPost(user_settings['sensors']['fitbit_activities'], {'data':[{'value':F.get_response(), 'date':timestamp}]})
