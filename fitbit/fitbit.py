@@ -2,7 +2,7 @@ import httplib, socket, json, oauth.oauth as oauth, urlparse
 
 class FitbitClient ():
     def __init__(self, consumer_key, consumer_secret):
-        self.__oauth_consumer__ = oauth.OAuthConsumer(consumer_key, consumer_secret)
+        self.__oauth_consumer__ = oauth.OAuthConsumer(str(consumer_key), str(consumer_secret))
         self.__base_url__ = 'api.fitbit.com'
         self.__response__ = ''
         
@@ -128,8 +128,8 @@ class FitbitClient ():
         self.__oauth_token__ = oauth.OAuthToken(r['oauth_token'][0], r['oauth_token_secret'][0])
 
     def getAccessToken (self, token, token_secret, verifier):
-        self.__oauth_token__ = oauth.OAuthToken(token, token_secret)
-        self.__oauth_token__.set_verifier(verifier)
+        self.__oauth_token__ = oauth.OAuthToken(str(token), str(token_secret))
+        self.__oauth_token__.set_verifier(str(verifier))
         oauth_request = oauth.OAuthRequest.from_consumer_and_token(self.__oauth_consumer__,\
                                                                    token=self.__oauth_token__,\
                                                                    verifier=verifier,\
