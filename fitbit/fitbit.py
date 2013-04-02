@@ -50,7 +50,7 @@ class FitbitClient ():
         url = '/1/user/{0}/activities/apiSubscriptions/{1}.json'.format(self.__user_id__, subscription_id)
         oauth_request = oauth.OAuthRequest.from_consumer_and_token(self.__oauth_consumer__,\
                                                                    token=self.__oauth_token__,\
-                                                                   http_method='POST',\
+                                                                   http_method='DELETE',\
                                                                    http_url='http://api.fitbit.com{0}'.format(url))
         oauth_request.sign_request(oauth.OAuthSignatureMethod_HMAC_SHA1(), self.__oauth_consumer__, self.__oauth_token__)
 
