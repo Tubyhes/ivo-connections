@@ -194,7 +194,7 @@ class Reception():
 #
         elif url.find('/fitbit_oauth_callback') > -1:
         # obtain access token from Fitbit
-            sense_token = url.rsplit('_', 1)[0]
+            sense_token = url.rsplit('_', 1)[1]
             print 'sense token: ' + sense_token
             oauth_stuff     = urlparse.parse_qs(query)
             request_token   = oauth_stuff['oauth_token'][0]
