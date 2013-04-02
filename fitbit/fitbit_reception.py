@@ -240,7 +240,7 @@ class Reception():
                 except:
                     continue
                 
-                F = fitbit.FitbitClient(self.__fitbit_oauth_consumer_key__, self.fitbit_oauth_consumer_secret__)
+                F = fitbit.FitbitClient(self.__fitbit_oauth_consumer_key__, self.__fitbit_oauth_consumer_secret__)
                 F.authenticate(user_settings['credentials']['fitbit_user_id'], user_settings['credentials']['fitbit_oauth_token_key'], user_settings['credentials']['fitbit_oauth_token_secret'])
                 if not F.getActivities(notification['date']):
                     continue
