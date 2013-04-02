@@ -77,7 +77,8 @@ class Reception():
         f = open('fitbit_oauth_consumer.txt', 'r')
         creds = json.load(f)
         f.close()
-        self.__F = fitbit.FitbitClient(creds['oauth_consumer_key'], creds['oauth_consumer_secret'])
+        self.__fitbit_oauth_consumer_key__ = creds['oauth_consumer_key']
+        self.__fitbit_oauth_consumer_secret__ = creds['oauth_consumer_secret']
         self.__fitbit_oauth_callback__ = creds['callback']
         
         self.__server = make_server(self.__host, self.__port, self.__handle_request__)
@@ -123,7 +124,7 @@ class Reception():
                 response_headers = [('Content-Type', 'text/html'), ('Content-Length', str(len(response_body)))]
                 
 #          
-# CREDENTIALS FOR COMMONSENSE                
+# START OF LOGIN PROCEDURE                
 #            
         elif url == '/login_procedure':
             S = senseapi.SenseAPI()
@@ -146,7 +147,11 @@ class Reception():
             response_body       = ''
             response_headers    = [('Location', 'http://api.sense-os.nl/oauth/authorize?oauth_token={0}'.format(request_token))]
 
+#
+# OAUTH CALLBACK FROM COMMONSENSE
+#
         elif url == '/commonsense_oauth_callback':
+        # obtain access token from CommonSense
             oauth_stuff     = urlparse.parse_qs(query)
             request_token   = oauth_stuff['oauth_token'][0]
             verifier        = oauth_stuff['oauth_verifier'][0]
@@ -167,39 +172,52 @@ class Reception():
                 start_response(response_status, response_headers)
                 return [response_body]
  
-            access_token = S.__oauth_token__.key
-            token_secret = S.__oauth_token__.secret
-            f = open('users/{0}.txt'.format(access_token), 'w')
-            f.write(json.dumps({'credentials':{'sense_oauth_token_secret':token_secret}}))
-            f.close()
- 
-            response_status     = '200 OK'
-            response_body       = self.load_page('oauth_fitbit')
-            response_headers    = [('Content-Type', 'text/html'), ('Content-Length', str(len(response_body)))]
-
- 
-#            if not S.OauthAuthorizeApplication(str(self.__sense_oauth_consumer_key__), str(self.__sense_oauth_consumer_secret__), 'forever', str(self.__sense_oauth_callback__)):
-#                response_status     = '401 Unauthorized'
-#                response_body       = self.load_page('main_page_error')
-#                response_headers    = [('Content-Type', 'text/html'), ('Content-Length', str(len(response_body)))]
-#                start_response(response_status, response_headers)
-#                return [response_body]
-#            
-#            S.UsersGetCurrent()
-#                
-#            oauth_stuff = urlparse.parse_qs(S.getResponse())
-#            f = open('users/{0}.txt'.format(credentials['username'][0]), 'w')
-#            f.write(json.dumps({'credentials':{'sense_oauth_token':oauth_stuff['oauth_token'][0],'sense_oauth_token_secret':oauth_stuff['oauth_token_secret'][0]}}, sort_keys=True, indent=4))
-#            f.close()
-#            
-#            response_status     = '200 OK'
-#            response_body       = self.load_page('oauth_fitbit')
-#            response_headers    = [('Content-Type', 'text/html'), ('Content-Length', str(len(response_body)))]
-       
-#
-# AUTHENTICATE AT FITBIT
-#
+            creds = {}
+            creds['credentials']['sense_oauth_token_secret'] = S.__oauth_token__.secret
             
+        # then move on to authenticating at Fitbit
+            F = fitbit.FitbitClient(self.__fitbit_oauth_consumer_key__, self.__fitbit_oauth_consumer_secret__)
+            F.getRequestToken('{0}_{1}'.format(self.__fitbit_oauth_callback__, S.__oauth_token__.key))
+            creds['credentials']['fitbit_oauth_token_key']      = F.__oauth_token__.key
+            creds['credentials']['fitbit_oauth_token_secret']   = F.__oauth_token__.secret
+            
+            f = open('users/{0}.txt'.format(S.__oauth_token__.key), 'w')
+            f.write(json.dumps(creds, sort_keys=True, indent=4))
+            f.close()
+
+            response_status     = '301 Redirect'
+            response_body       = ''
+            response_headers    = [('Location', 'https://www.fitbit.com/oauth/authorize?oauth_token={0}'.format(creds['credentials']['fitbit_oauth_token_key']))]
+
+#
+# OAUTH CALLBACK FROM FITBIT
+#
+        elif url.find('/fitbit_oauth_callback') > -1:
+        # obtain access token from Fitbit
+            sense_token = url.rsplit('_', 1)[0]
+            print 'sense token: ' + sense_token
+            oauth_stuff     = urlparse.parse_qs(query)
+            request_token   = oauth_stuff['oauth_token'][0]
+            verifier        = oauth_stuff['oauth_verifier'][0]
+            
+            f = open('users/{0}.txt'.format(sense_token))
+            creds = json.load(f)
+            f.close()
+            token_secret = creds['credentials']['fitbit_oauth_token_secret']
+            
+            F = fitbit.FitbitClient(self.__fitbit_oauth_consumer_key__, self.__fitbit_oauth_consumer_secret__)
+            F.getAccessToken(request_token, token_secret, verifier)
+            creds['credentials']['fitbit_oauth_token_key'] = F.__oauth_token__.key
+            creds['credentials']['fitbit_oauth_token_secret'] = F.__oauth_token__.secret
+            creds['credentials']['fitbit_user_id'] = F.__user_id__
+            
+            f = open('users/{0}.txt'.format(sense_token))
+            f.write(json.dumps(creds, sort_keys=True, indent=4))
+            f.close()
+            
+            response_status     = '200 OK'
+            response_body       = self.load_page('register_success')
+            response_headers    = [('Content-Type', 'text/html'), ('Content-Length', str(len(response_body)))]
             
 #            
 # INCOMING NOTIFICATION FROM FITBIT
@@ -215,9 +233,10 @@ class Reception():
                     f.close()
                 except:
                     continue
-            
-                self.__F.authenticate(user_settings['credentials']['user_id'], user_settings['credentials']['oauth_token'], user_settings['credentials']['oauth_token_secret'])
-                if not self.__F.getActivities(notification['date']):
+                
+                F = fitbit.FitbitClient(self.__fitbit_oauth_consumer_key__, self.fitbit_oauth_consumer_secret__)
+                F.authenticate(user_settings['credentials']['user_id'], user_settings['credentials']['oauth_token'], user_settings['credentials']['oauth_token_secret'])
+                if not F.getActivities(notification['date']):
                     continue
 
                 S = senseapi.SenseAPI()
@@ -225,15 +244,21 @@ class Reception():
                 S.Login(user_settings['credentials']['user_name'], senseapi.MD5Hash(user_settings['credentials']['password']))
                 # construct timestamp
                 timestamp = time.mktime(datetime.datetime.strptime(notification['date'], "%Y-%m-%d").timetuple())
-                S.SensorDataPost(user_settings['sensors']['fitbit_activities'], {'data':[{'value':self.__F.get_response(), 'date':timestamp}]})
+                S.SensorDataPost(user_settings['sensors']['fitbit_activities'], {'data':[{'value':F.get_response(), 'date':timestamp}]})
 
             response_status  = '204 No Content'
             response_body    = ''
             response_headers = [('Content-Type', 'text/html'), ('Content-Length', str(len(response_body)))]
-            
+         
+#
+# PAGE NOT FOUND
+#   
         else:
             response_status, response_headers, response_body = self.__not_found__()
                 
+#
+# RETURN RESULT
+#
         start_response(response_status, response_headers)
         return [response_body] 
 
