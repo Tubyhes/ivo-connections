@@ -172,7 +172,7 @@ class Reception():
                 start_response(response_status, response_headers)
                 return [response_body]
  
-            creds = {}
+            creds = {'credentials':{}}
             creds['credentials']['sense_oauth_token_secret'] = S.__oauth_token__.secret
             
         # then move on to authenticating at Fitbit
